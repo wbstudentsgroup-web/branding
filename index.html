@@ -18,6 +18,9 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,
 .drop-active{border-color:#0b1f3a!important;background:#eef5ff!important}
 #previewArea canvas{display:block;width:100%;height:auto;background:#fff;box-shadow:0 10px 30px rgba(15,23,42,.14)}
 #previewArea canvas+canvas{margin-top:16px}
+html,body{overflow-x:hidden}
+@media(max-width:1023px){main{width:100%;max-width:100%!important}header{width:100%;overflow:hidden}header .mx-auto{min-width:0}header .mx-auto>span{display:none}#previewArea{max-height:65vh!important}}
+@media(max-width:639px){main{padding-left:12px!important;padding-right:12px!important;padding-top:14px!important;padding-bottom:110px!important}main>section:first-child{padding:18px!important;border-radius:22px!important;margin-bottom:14px!important}main>section:first-child h1{font-size:1.45rem!important;line-height:1.2}main>section:first-child p{font-size:.82rem!important;line-height:1.45}.grid.gap-6{gap:12px!important}aside{width:100%;min-width:0}aside section{padding:14px!important;border-radius:20px!important}#dropZone{min-height:150px!important}#fileList{max-height:210px;overflow-y:auto}section.min-w-0{padding:10px!important;border-radius:20px!important}#emptyState{min-height:42vh!important;padding:20px!important}#previewArea{padding:0!important;max-height:58vh!important}#previewArea canvas{max-width:100%;height:auto!important}.fixed.inset-x-0.bottom-0>div{padding-left:10px!important;padding-right:10px!important}#downloadBtn{min-width:0;padding-left:10px!important;padding-right:10px!important}#downloadBtn span{font-size:.78rem}#shareBtn{width:52px!important}}
 .spinner{width:20px;height:20px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:999px;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .toast{animation:tin .2s ease-out}
@@ -47,15 +50,17 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,
   <aside class="space-y-5">
    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
     <div class="mb-4 flex items-center justify-between">
-     <div><h2 class="font-black text-[#0b1f3a]">1. Upload</h2><p class="text-xs text-slate-500">Add 3–4 or more files • PDF/JPG/PNG</p></div>
+     <div><h2 class="font-black text-[#0b1f3a]">1. Upload</h2><p class="text-xs text-slate-500">Add multiple files • PDF/JPG/PNG</p></div>
      <button id="clearBtn" class="hidden rounded-xl p-2 text-slate-400 hover:bg-slate-100"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
     </div>
     <label id="dropZone" for="fileInput" class="group flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 text-center transition">
      <div class="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-white text-[#0b1f3a] shadow-sm"><i data-lucide="upload-cloud" class="h-6 w-6"></i></div>
-     <p class="font-bold">Drag & drop files here</p><p class="mt-1 text-xs text-slate-500">or tap to browse</p><p class="mt-3 text-[11px] text-slate-400">Multiple PDF/JPG/PNG supported</p>
+     <p class="font-bold">Drag & drop files here</p><p class="mt-1 text-xs text-slate-500">or tap to browse</p><p class="mt-3 text-[11px] text-slate-400">Select multiple PDFs/JPG/PNG at once</p>
     </label>
     <input id="fileInput" class="hidden" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple>
-    <div id="fileList" class="mt-4 hidden space-y-2"></div><p id="fileCount" class="mt-2 hidden text-center text-[11px] font-bold text-slate-500"></p>
+    <div id="fileList" class="mt-4 hidden space-y-2"></div>
+    <button id="addMoreBtn" type="button" class="mt-3 hidden w-full rounded-2xl border border-dashed border-[#173f70] bg-[#f7faff] px-4 py-3 text-sm font-black text-[#173f70]"><span class="inline-flex items-center gap-2"><i data-lucide="plus" class="h-4 w-4"></i> Add More Files</span></button>
+    <p id="fileCount" class="mt-2 hidden text-center text-[11px] font-bold text-slate-500"></p>
    </section>
 
    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -152,8 +157,8 @@ function selectClass(k){state.selectedClass=k;$("classSelect").value=k;closeModa
 
 function renderFiles(){
  const box=$("fileList"),count=$("fileCount");
- if(!state.files.length){box.classList.add("hidden");count.classList.add("hidden");$("clearBtn").classList.add("hidden");return}
- box.classList.remove("hidden");count.classList.remove("hidden");$("clearBtn").classList.remove("hidden");
+ if(!state.files.length){box.classList.add("hidden");count.classList.add("hidden");$("clearBtn").classList.add("hidden");$("addMoreBtn").classList.add("hidden");return}
+ box.classList.remove("hidden");count.classList.remove("hidden");$("clearBtn").classList.remove("hidden");$("addMoreBtn").classList.remove("hidden");
  count.textContent=`${state.files.length} file${state.files.length===1?"":"s"} selected • all will be combined into one branded PDF`;
  box.innerHTML=state.files.map((f,i)=>`<div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3"><div class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-[#0b1f3a]"><i data-lucide="${/\.pdf$/i.test(f.name)?"file-text":"image"}" class="h-4 w-4"></i></div><div class="min-w-0 flex-1"><p class="truncate text-xs font-bold">${esc(f.name)}</p><p class="text-[11px] text-slate-400">${bytes(f.size)}</p></div><button data-r="${i}" class="rounded-xl p-2 text-slate-400 hover:text-red-600" aria-label="Remove file"><i data-lucide="x" class="h-4 w-4"></i></button></div>`).join("");
  box.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{state.files.splice(+b.dataset.r,1);renderFiles();reset();if(state.files.length&&state.selectedClass)process()});
@@ -281,8 +286,8 @@ async function applyBranding(baseBytes){
 
   if($("watermarkToggle").checked){
    // ALWAYS-ON watermark: one clean, straight logo only. No repeated text grid and no rotation.
-   const wmMaxW=Math.min(250, ow*0.40);
-   const wmMaxH=Math.min(190, oh*0.28);
+   const wmMaxW=Math.min(340, ow*0.55);
+   const wmMaxH=Math.min(270, oh*0.38);
    const ratio=logo.width/logo.height;
    let wmW=wmMaxW, wmH=wmW/ratio;
    if(wmH>wmMaxH){ wmH=wmMaxH; wmW=wmH*ratio; }
@@ -374,12 +379,14 @@ async function share(){
  toast("PDF downloaded. WhatsApp opened — attach the PDF if your browser does not support file sharing.");
 }
 
-$("fileInput").onchange=e=>handleFiles(e.target.files);
+$("fileInput").onchange=e=>{handleFiles(e.target.files);e.target.value=""};
+$("addMoreBtn").onclick=()=>$("fileInput").click();
 async function handleFiles(list){
  const arr=Array.from(list||[]),valid=arr.filter(f=>f.type==="application/pdf"||f.type==="image/jpeg"||f.type==="image/png"||/\.(pdf|jpe?g|png)$/i.test(f.name));
  if(!valid.length)return toast("Please choose PDF, JPG or PNG files.",true);
- if(valid.length>20)return toast("You can add up to 20 files at once.",true);
- state.files=valid;
+ const existing=new Set(state.files.map(f=>`${f.name}|${f.size}|${f.lastModified}`));
+ for(const f of valid){const key=`${f.name}|${f.size}|${f.lastModified}`;if(!existing.has(key)){state.files.push(f);existing.add(key)}}
+ if(state.files.length>20){state.files=state.files.slice(0,20);toast("Maximum 20 files allowed. Extra files were not added.",true)}
  renderFiles();reset();
  if(!state.selectedClass)openModal();else process();
 }

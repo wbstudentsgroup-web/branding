@@ -143,7 +143,8 @@ html,body{overflow-x:hidden}
    <p class="mb-3 text-sm font-semibold text-slate-600">Choose your undergraduate group</p>
    <div class="grid gap-3">
     <button data-ug="ug_bcom" class="flex items-center gap-4 rounded-2xl border border-slate-200 p-4 text-left hover:border-[#173f70] hover:bg-slate-50"><div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0b1f3a] text-white"><i data-lucide="briefcase-business" class="h-5 w-5"></i></div><div class="flex-1"><b>B.Com</b><p class="mt-1 text-xs text-slate-500">Join B.Com UG Group</p></div><i data-lucide="chevron-right" class="h-5 w-5 text-slate-300"></i></button>
-    <button data-ug="ug_bsc" class="flex items-center gap-4 rounded-2xl border border-slate-200 p-4 text-left hover:border-[#173f70] hover:bg-slate-50"><div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0b1f3a] text-white"><i data-lucide="flask-conical" class="h-5 w-5"></i></div><div class="flex-1"><b>B.Sc</b><p class="mt-1 text-xs text-slate-500">Join B.Sc UG Group</p></div><i data-lucide="chevron-right" class="h-5 w-5 text-slate-300"></i></button>
+    <button data-ug="ug_ba" class="flex items-center gap-3 rounded-2xl border border-slate-200 p-4 text-left hover:border-[#173f70] hover:bg-slate-50"><div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#0b1f3a] text-white"><i data-lucide="book-open" class="h-5 w-5"></i></div><div><b>B.A</b><p class="text-xs text-slate-500">Join B.A UG Group</p></div></button>
+   <button data-ug="ug_bsc" class="flex items-center gap-4 rounded-2xl border border-slate-200 p-4 text-left hover:border-[#173f70] hover:bg-slate-50"><div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0b1f3a] text-white"><i data-lucide="flask-conical" class="h-5 w-5"></i></div><div class="flex-1"><b>B.Sc</b><p class="mt-1 text-xs text-slate-500">Join B.Sc UG Group</p></div><i data-lucide="chevron-right" class="h-5 w-5 text-slate-300"></i></button>
    </div>
   </div>
  </div>
@@ -167,6 +168,7 @@ const BRAND = {
   class12:{short:"12",label:"Class 12th",join:"JOIN 12 GROUP",message:"I want to Join Class 12th Group",icon:"school"},
   ug:{short:"UG",label:"UG Group",join:"CHOOSE B.COM OR B.SC",message:"",icon:"graduation-cap"},
   ug_bcom:{short:"B.COM",label:"B.Com",join:"JOIN B.COM UG GROUP",message:"I want to Join B.Com UG Group",icon:"briefcase-business"},
+  ug_ba:{short:"B.A",label:"B.A",join:"JOIN B.A UG GROUP",message:"I want to Join B.A UG Group",icon:"book-open"},
   ug_bsc:{short:"B.SC",label:"B.Sc",join:"JOIN B.SC UG GROUP",message:"I want to Join B.Sc UG Group",icon:"flask-conical"}
  }
 };
@@ -493,38 +495,38 @@ function downloadOne(i){
 }
 async function shareOne(i){
  if(!state.outputs[i])return;
- const cls=BRAND.classes[state.selectedClass],name=outputName(i);
- const file=new File([state.outputs[i]],name,{type:"application/pdf",lastModified:Date.now()});
- const msg=`WB STUDENTS GROUP
-${cls.message}
-
-${name}`;
+ const cls=BRAND.classes[state.selectedClass];
+ const name=outputName(i);
+ const blob=new Blob([state.outputs[i]],{type:"application/pdf"});
+ const file=new File([blob],name,{type:"application/pdf",lastModified:1});
+ const msg=`WB STUDENTS GROUP\n${cls.message||"Study Material"}\n\n${name}`;
  try{
-  if(navigator.share&&navigator.canShare?.({files:[file]})){
-   await navigator.share({title:name.replace(/\.pdf$/i,""),text:msg,files:[file]});
+  if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+   await navigator.share({files:[file],title:name.replace(/\.pdf$/i,""),text:msg});
    return;
   }
- }catch(e){if(e?.name==="AbortError")return;}
+ }catch(e){if(e?.name==="AbortError")return;console.warn("Native share failed",e);}
+ // Fallback: download with the exact requested filename before opening WhatsApp.
  downloadOne(i);
- window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nThe PDF has been downloaded. Attach the same file here.")}`,"_blank","noopener,noreferrer");
+ window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nPlease attach the downloaded PDF named "+name+".")}`,"_blank","noopener,noreferrer");
 }
 async function downloadAll(){for(let i=0;i<state.outputs.length;i++){downloadOne(i);await new Promise(r=>setTimeout(r,180));}toast(`${state.outputs.length} separate PDFs downloaded.`)}
 async function shareAll(){
  if(!state.outputs.length)return;
- const files=state.outputs.map((b,i)=>new File([b],outputName(i),{type:"application/pdf",lastModified:Date.now()}));
+ const files=state.outputs.map((b,i)=>{
+  const name=outputName(i);
+  return new File([new Blob([b],{type:"application/pdf"})],name,{type:"application/pdf",lastModified:1});
+ });
  const cls=BRAND.classes[state.selectedClass];
- const msg=`WB STUDENTS GROUP
-${cls.message}
-
-${files.length} PDF files`;
+ const msg=`WB STUDENTS GROUP\n${cls.message||"Study Material"}\n\n${files.length} PDF files`;
  try{
-  if(navigator.share&&navigator.canShare?.({files})){
-   await navigator.share({title:"WB STUDENTS GROUP",text:msg,files});
+  if(navigator.share && navigator.canShare && navigator.canShare({files})){
+   await navigator.share({files,title:"WB STUDENTS GROUP",text:msg});
    return;
   }
- }catch(e){if(e?.name==="AbortError")return;}
+ }catch(e){if(e?.name==="AbortError")return;console.warn("Native multi-share failed",e);}
  await downloadAll();
- window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nAll PDFs were downloaded with their original/custom filenames. Attach them here.")}`,"_blank","noopener,noreferrer");
+ window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nAll PDFs were downloaded using their exact filenames. Please attach them from Downloads.")}`,"_blank","noopener,noreferrer");
 }
 async function mergeAll(){
  if(!state.outputs.length||state.processing)return;

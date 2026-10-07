@@ -466,20 +466,38 @@ function downloadOne(i){
 }
 async function shareOne(i){
  if(!state.outputs[i])return;
- const cls=BRAND.classes[state.selectedClass],name=cleanName(state.displayNames[i],`WB-Students-Group-${i+1}`)+".pdf";
- const file=new File([state.outputs[i]],name,{type:"application/pdf"});
- const msg=`WB STUDENTS GROUP\n${cls.message}\n\n${name}`;
- try{if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:name,text:msg,files:[file]});return;}}catch(e){if(e?.name==="AbortError")return;}
- downloadOne(i);window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nThe PDF has been downloaded. Attach it here.")}`,"_blank","noopener,noreferrer");
+ const cls=BRAND.classes[state.selectedClass],name=outputName(i);
+ const file=new File([state.outputs[i]],name,{type:"application/pdf",lastModified:Date.now()});
+ const msg=`WB STUDENTS GROUP
+${cls.message}
+
+${name}`;
+ try{
+  if(navigator.share&&navigator.canShare?.({files:[file]})){
+   await navigator.share({title:name.replace(/\.pdf$/i,""),text:msg,files:[file]});
+   return;
+  }
+ }catch(e){if(e?.name==="AbortError")return;}
+ downloadOne(i);
+ window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nThe PDF has been downloaded. Attach the same file here.")}`,"_blank","noopener,noreferrer");
 }
 async function downloadAll(){for(let i=0;i<state.outputs.length;i++){downloadOne(i);await new Promise(r=>setTimeout(r,180));}toast(`${state.outputs.length} separate PDFs downloaded.`)}
 async function shareAll(){
  if(!state.outputs.length)return;
- const files=state.outputs.map((b,i)=>new File([b],cleanName(state.displayNames[i],`WB-Students-Group-${i+1}`)+".pdf",{type:"application/pdf"}));
- const cls=BRAND.classes[state.selectedClass],msg=`WB STUDENTS GROUP\n${cls.message}\n\n${files.length} branded PDF files`;
- try{if(navigator.share&&navigator.canShare?.({files})){await navigator.share({title:"WB STUDENTS GROUP",text:msg,files});return;}}catch(e){if(e?.name==="AbortError")return;}
+ const files=state.outputs.map((b,i)=>new File([b],outputName(i),{type:"application/pdf",lastModified:Date.now()}));
+ const cls=BRAND.classes[state.selectedClass];
+ const msg=`WB STUDENTS GROUP
+${cls.message}
+
+${files.length} PDF files`;
+ try{
+  if(navigator.share&&navigator.canShare?.({files})){
+   await navigator.share({title:"WB STUDENTS GROUP",text:msg,files});
+   return;
+  }
+ }catch(e){if(e?.name==="AbortError")return;}
  await downloadAll();
- window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nAll PDFs were downloaded. You can attach them here.")}`,"_blank","noopener,noreferrer");
+ window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nAll PDFs were downloaded with their original/custom filenames. Attach them here.")}`,"_blank","noopener,noreferrer");
 }
 async function mergeAll(){
  if(!state.outputs.length||state.processing)return;

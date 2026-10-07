@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1f3a">
+<meta name="google-site-verification" content="QdWp6KclUO3WdEfBuTkQhXAhnqjiTWrIhc3XT16dT9E">
 <title>WB Students Group — Document Branding Engine</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -87,7 +88,7 @@ html,body{overflow-x:hidden}
       <option value="class10">Class 10th — Madhyamik / Secondary</option>
       <option value="class11">Class 11th — Semester 1 / 2</option>
       <option value="class12">Class 12th — Higher Secondary / HS</option>
-      <option value="competitive">Competitive Exams — WB TET / NEET / General</option>
+      <option value="ug">UG Group — B.Com / B.Sc</option>
     </select>
    </section>
 
@@ -137,6 +138,14 @@ html,body{overflow-x:hidden}
  <div class="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl">
   <div class="flex items-start justify-between"><div><p class="text-xs font-black uppercase tracking-[.18em] text-[#173f70]">Branding setup</p><h2 class="mt-1 text-2xl font-black">Choose your class</h2></div><button id="closeModal" class="rounded-xl p-2 text-slate-400"><i data-lucide="x" class="h-5 w-5"></i></button></div>
   <div id="classCards" class="mt-5 grid gap-3"></div>
+  <div id="ugCards" class="mt-5 hidden">
+   <button id="ugBack" type="button" class="mb-3 flex items-center gap-2 rounded-xl px-2 py-1 text-sm font-bold text-slate-500 hover:bg-slate-50"><i data-lucide="arrow-left" class="h-4 w-4"></i> Back</button>
+   <p class="mb-3 text-sm font-semibold text-slate-600">Choose your undergraduate group</p>
+   <div class="grid gap-3">
+    <button data-ug="ug_bcom" class="flex items-center gap-4 rounded-2xl border border-slate-200 p-4 text-left hover:border-[#173f70] hover:bg-slate-50"><div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0b1f3a] text-white"><i data-lucide="briefcase-business" class="h-5 w-5"></i></div><div class="flex-1"><b>B.Com</b><p class="mt-1 text-xs text-slate-500">Join B.Com UG Group</p></div><i data-lucide="chevron-right" class="h-5 w-5 text-slate-300"></i></button>
+    <button data-ug="ug_bsc" class="flex items-center gap-4 rounded-2xl border border-slate-200 p-4 text-left hover:border-[#173f70] hover:bg-slate-50"><div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0b1f3a] text-white"><i data-lucide="flask-conical" class="h-5 w-5"></i></div><div class="flex-1"><b>B.Sc</b><p class="mt-1 text-xs text-slate-500">Join B.Sc UG Group</p></div><i data-lucide="chevron-right" class="h-5 w-5 text-slate-300"></i></button>
+   </div>
+  </div>
  </div>
 </div>
 
@@ -156,7 +165,9 @@ const BRAND = {
   class10:{short:"10",label:"Class 10th",join:"JOIN 10 GROUP",message:"I want to Join Class 10th Group",icon:"graduation-cap"},
   class11:{short:"11",label:"Class 11th",join:"JOIN 11 GROUP",message:"I want to Join Class 11th Group",icon:"book-open"},
   class12:{short:"12",label:"Class 12th",join:"JOIN 12 GROUP",message:"I want to Join Class 12th Group",icon:"school"},
-  competitive:{short:"COMP",label:"Competitive Exams",join:"JOIN COMPETITIVE GROUP",message:"I want to Join Competitive Exams Group",icon:"trophy"}
+  ug:{short:"UG",label:"UG Group",join:"CHOOSE B.COM OR B.SC",message:"",icon:"graduation-cap"},
+  ug_bcom:{short:"B.COM",label:"B.Com",join:"JOIN B.COM UG GROUP",message:"I want to Join B.Com UG Group",icon:"briefcase-business"},
+  ug_bsc:{short:"B.SC",label:"B.Sc",join:"JOIN B.SC UG GROUP",message:"I want to Join B.Sc UG Group",icon:"flask-conical"}
  }
 };
 
@@ -175,11 +186,27 @@ function openModal(){$("modal").classList.remove("hidden");$("modal").classList.
 function closeModal(){$("modal").classList.add("hidden");$("modal").classList.remove("flex")}
 function renderCards(){
  const wrap=$("classCards");
- wrap.innerHTML=Object.entries(BRAND.classes).map(([k,c])=>`<button data-k="${k}" class="flex items-center gap-4 rounded-2xl border border-slate-200 p-4 text-left hover:border-[#173f70] hover:bg-slate-50"><div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0b1f3a] text-white"><i data-lucide="${c.icon}" class="h-5 w-5"></i></div><div class="flex-1"><b>${c.label}</b><p class="mt-1 text-xs text-slate-500">${c.join}</p></div><i data-lucide="chevron-right" class="h-5 w-5 text-slate-300"></i></button>`).join("");
- wrap.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>selectClass(b.dataset.k));
+ $("ugCards").classList.add("hidden");
+ wrap.classList.remove("hidden");
+ const keys=["class10","class11","class12","ug"];
+ wrap.innerHTML=keys.map(k=>{const c=BRAND.classes[k];return `<button data-k="${k}" class="flex items-center gap-4 rounded-2xl border border-slate-200 p-4 text-left hover:border-[#173f70] hover:bg-slate-50"><div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0b1f3a] text-white"><i data-lucide="${c.icon}" class="h-5 w-5"></i></div><div class="flex-1"><b>${c.label}</b><p class="mt-1 text-xs text-slate-500">${c.join}</p></div><i data-lucide="chevron-right" class="h-5 w-5 text-slate-300"></i></button>`}).join("");
+ wrap.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>b.dataset.k==="ug"?showUG():selectClass(b.dataset.k));
+ $("ugBack").onclick=renderCards;
+ $("ugCards").querySelectorAll("[data-ug]").forEach(b=>b.onclick=()=>selectClass(b.dataset.ug));
  lucide.createIcons();
 }
-function selectClass(k){state.selectedClass=k;$("classSelect").value=k;closeModal();if(state.files.length) process()}
+function showUG(){
+ $("classCards").classList.add("hidden");
+ $("ugCards").classList.remove("hidden");
+ lucide.createIcons();
+}
+function selectClass(k){
+ if(k==="ug"){showUG();return;}
+ state.selectedClass=k;
+ $("classSelect").value=k.startsWith("ug_")?"ug":k;
+ closeModal();
+ if(state.files.length) process();
+}
 
 function renderFiles(){
  const box=$("fileList"),count=$("fileCount"),editor=$("nameEditor");
@@ -544,7 +571,7 @@ dz.addEventListener("drop",e=>{
   if(files && files.length) handleFiles(files);
 });
 
-$("classSelect").onchange=e=>e.target.value&&selectClass(e.target.value);
+$("classSelect").onchange=e=>{if(e.target.value==="ug")showUG();else if(e.target.value)selectClass(e.target.value);};
 $("closeModal").onclick=closeModal;$("modal").onclick=e=>e.target===$("modal")&&closeModal();
 $("clearBtn").onclick=()=>{state.files=[];state.displayNames=[];state.finalName="";$("fileInput").value="";renderFiles();reset()};
 ["headerToggle","footerToggle","watermarkToggle"].forEach(id=>$(id).onchange=()=>state.files.length&&state.selectedClass&&process());

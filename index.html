@@ -60,8 +60,12 @@ html,body{overflow-x:hidden}
     <button id="browseBtn" type="button" class="mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#0b1f3a] px-5 py-2.5 text-sm font-black text-white shadow-sm hover:opacity-95"><i data-lucide="folder-open" class="h-4 w-4"></i> Browse Files</button>
     </div>
     <input id="fileInput" class="sr-only" type="file" accept="application/pdf,.pdf,image/jpeg,.jpg,.jpeg,image/png,.png" multiple>
-    <input id="jpgInput" class="sr-only" type="file" accept="image/jpeg,.jpg,.jpeg,image/png,.png" multiple>
-    <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+    <input id="jpgInput" class="sr-only" type="file" accept="image/*,.jpg,.jpeg,.png" multiple>
+    <div class="mt-3 grid grid-cols-1 gap-2">
+      <button id="jpgOutputModeBtn" type="button" aria-pressed="false" class="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-emerald-700 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-800 hover:bg-emerald-100">
+        <i data-lucide="image" class="h-4 w-4"></i> JPG Output Mode (Optional)
+      </button>
+      <p id="jpgModeHint" class="text-[11px] text-slate-500">Optional: turn this on to brand image files and download/share them as JPG files, not PDF. This mode is for JPG/PNG images only.</p>
       <button id="jpgToPdfBtn" type="button" class="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#173f70] bg-white px-4 py-2.5 text-sm font-black text-[#173f70] hover:bg-slate-50">
         <i data-lucide="image-plus" class="h-4 w-4"></i> JPG → PDF &amp; Brand
       </button>
@@ -173,7 +177,7 @@ const BRAND = {
  }
 };
 
-const state={files:[],displayNames:[],selectedClass:"",outputs:[],mergedOutput:null,processing:false,finalName:"",previewIndex:0};
+const state={files:[],displayNames:[],selectedClass:"",outputs:[],outputTypes:[],jpgOutputMode:false,mergedOutput:null,processing:false,reprocessRequested:false,finalName:"",previewIndex:0,previewRenderToken:0};
 const $=id=>document.getElementById(id);
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 lucide.createIcons();
@@ -207,7 +211,7 @@ function selectClass(k){
  state.selectedClass=k;
  $("classSelect").value=k.startsWith("ug_")?"ug":k;
  closeModal();
- if(state.files.length) process();
+ if(state.files.length){if(state.processing)state.reprocessRequested=true;else process();}
 }
 
 function renderFiles(){
@@ -224,7 +228,7 @@ function renderFiles(){
     <button data-r="${i}" class="rounded-xl p-2 text-slate-400 hover:text-red-600" aria-label="Remove file"><i data-lucide="x" class="h-4 w-4"></i></button>
    </div>
    <input data-name="${i}" value="${esc(state.displayNames[i])}" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-[#173f70]" aria-label="File ${i+1} name">
-   <div class="mt-2 flex items-center gap-2"><span data-status="${i}" class="mr-auto text-[10px] font-black text-slate-400">${state.outputs[i]?"BRANDED ✓":"WAITING"}</span><button data-download-file="${i}" ${state.outputs[i]?"":"disabled"} class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-[#0b1f3a] disabled:opacity-40"><i data-lucide="download" class="mr-1 inline h-3.5 w-3.5"></i>Download</button><button data-share-file="${i}" ${state.outputs[i]?"":"disabled"} class="inline-flex items-center gap-1.5 rounded-xl bg-[#0b1f3a] px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-[#173f70] disabled:opacity-40" title="Share this PDF"><span class="grid h-5 w-5 place-items-center rounded-full bg-white/15"><i data-lucide="send" class="h-3.5 w-3.5"></i></span>Share</button></div>
+   <div class="mt-2 flex items-center gap-2"><span data-status="${i}" class="mr-auto text-[10px] font-black text-slate-400">${state.outputs[i]?"BRANDED ✓":"WAITING"}</span><button data-download-file="${i}" ${state.outputs[i]?"":"disabled"} class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-[#0b1f3a] disabled:opacity-40"><i data-lucide="download" class="mr-1 inline h-3.5 w-3.5"></i>Download</button><button data-share-file="${i}" ${state.outputs[i]?"":"disabled"} class="inline-flex items-center gap-1.5 rounded-xl bg-[#0b1f3a] px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-[#173f70] disabled:opacity-40" title="Share this file"><span class="grid h-5 w-5 place-items-center rounded-full bg-white/15"><i data-lucide="send" class="h-3.5 w-3.5"></i></span>Share</button></div>
   </div>`).join("");
  box.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{const i=+b.dataset.r;state.files.splice(i,1);state.displayNames.splice(i,1);renderFiles();reset();if(state.files.length&&state.selectedClass)process()});
  box.querySelectorAll("[data-name]").forEach(inp=>inp.oninput=()=>{state.displayNames[+inp.dataset.name]=inp.value;});
@@ -238,7 +242,7 @@ function reset(){
  $("livePicker").innerHTML="";
  state.previewIndex=0;$("previewArea").classList.add("hidden");$("emptyState").classList.remove("hidden");$("pageCount").classList.add("hidden");
  $("previewMeta").textContent=state.files.length?"Choose a class to brand the documents.":"Upload files and choose a class.";
- state.outputs=[];state.mergedOutput=null;$("downloadBtn").disabled=true;$("shareBtn").disabled=true;$("downloadAllBtn").disabled=true;$("mergeBtn").disabled=true;
+ state.outputs=[];state.outputTypes=[];state.mergedOutput=null;$("downloadBtn").disabled=true;$("shareBtn").disabled=true;$("downloadAllBtn").disabled=true;$("mergeBtn").disabled=true;
  $("downloadBtn").innerHTML=`<i data-lucide="download" class="h-5 w-5"></i><span>Download All</span>`;
  lucide.createIcons();
 }
@@ -293,14 +297,14 @@ function hex(h){const x=h.replace("#","");return [parseInt(x.slice(0,2),16)/255,
 function dataUrlBytes(s){const b=atob(s.split(",")[1]);const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
 
 async function drawVectorQr(doc,page,text,x,y,size){
- const qr=qrcode(0,"H");qr.addData(text);qr.make();
+ const qr=qrcode(0,"L");qr.addData(text);qr.make();
  const count=qr.getModuleCount();
  const quiet=4;
  const unit=size/(count+quiet*2);
- const green=PDFLib.rgb(...hex("#159447"));
+ const green=PDFLib.rgb(...hex("#073B35"));
  page.drawRectangle({x,y,width:size,height:size,color:PDFLib.rgb(1,1,1)});
  for(let r=0;r<count;r++)for(let c=0;c<count;c++)if(qr.isDark(r,c)){
-  page.drawRectangle({x:x+(c+quiet)*unit,y:y+size-(r+quiet+1)*unit,width:unit+.12,height:unit+.12,color:green});
+  page.drawRectangle({x:x+(c+quiet)*unit,y:y+size-(r+quiet+1)*unit,width:unit+.02,height:unit+.02,color:green});
  }
  // Small white quiet-zone frame for a clean, familiar QR look.
  page.drawRectangle({x:x-2,y:y-2,width:size+4,height:size+4,borderColor:PDFLib.rgb(.86,.9,.88),borderWidth:.5});
@@ -353,13 +357,13 @@ async function applyBranding(baseBytes){
    const q=50;
    await drawVectorQr(doc,p,qrText,W-q-18,H-HEADER+12,q);
    const jt=bold.widthOfTextAtSize(cls.join,6.2);
-   p.drawText(cls.join,{x:W-q-18+(q-jt)/2,y:H-HEADER+3,size:6.2,font:bold,color:green});
+   p.drawText("SCAN TO JOIN GROUP",{x:W-q-18+(q-bold.widthOfTextAtSize("SCAN TO JOIN GROUP",5.2))/2,y:H-HEADER+4,size:5.2,font:bold,color:green});
   }
 
   if($("watermarkToggle").checked){
    // ALWAYS-ON watermark: one clean, straight logo only. No repeated text grid and no rotation.
-   const wmMaxW=Math.min(340, ow*0.55);
-   const wmMaxH=Math.min(270, oh*0.38);
+   const wmMaxW=Math.min(375, ow*0.60);
+   const wmMaxH=Math.min(295, oh*0.42);
    const ratio=logo.width/logo.height;
    let wmW=wmMaxW, wmH=wmW/ratio;
    if(wmH>wmMaxH){ wmH=wmMaxH; wmW=wmH*ratio; }
@@ -382,17 +386,40 @@ async function applyBranding(baseBytes){
  return await doc.save();
 }
 
-async function renderPreview(bytes){
- const pdf=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
+async function renderSelectedPreview(index){
+ if(!state.outputs[index])return;
+ state.previewIndex=index;
+ const token=++state.previewRenderToken;
  const area=$("previewArea");area.innerHTML="";area.classList.remove("hidden");$("emptyState").classList.add("hidden");
+ if(state.jpgOutputMode || state.outputTypes[index]==="image/jpeg"){
+  const im=document.createElement("img");im.alt="Branded image preview";im.className="mx-auto h-auto w-full rounded-sm";
+  im.src=URL.createObjectURL(new Blob([state.outputs[index]],{type:"image/jpeg"}));area.appendChild(im);
+  $("pageCount").textContent="JPG image";$("pageCount").classList.remove("hidden");
+  $("previewMeta").textContent=`Preview: ${outputName(index)}`;return;
+ }
+ await renderPreview(state.outputs[index],token);
+ if(token===state.previewRenderToken)$("previewMeta").textContent=`Preview: ${outputName(index)}`;
+}
+
+async function renderPreview(bytes,token=++state.previewRenderToken){
+ const pdf=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
+ if(token!==state.previewRenderToken)return;
+ const area=$("previewArea");area.innerHTML="";area.classList.remove("hidden");$("emptyState").classList.add("hidden");
+ const loading=document.createElement("p");loading.className="p-4 text-center text-sm text-slate-500";loading.textContent="Rendering high-quality preview…";area.appendChild(loading);
  $("pageCount").textContent=`${pdf.numPages} page${pdf.numPages===1?"":"s"}`;$("pageCount").classList.remove("hidden");
  $("previewMeta").textContent=`${BRAND.classes[state.selectedClass].label} • external header + footer`;
+ const target=Math.max(320,Math.min(1800,area.clientWidth-8));
+ area.innerHTML="";
  for(let n=1;n<=pdf.numPages;n++){
+  if(token!==state.previewRenderToken)return;
   const page=await pdf.getPage(n),base=page.getViewport({scale:1});
-  const target=Math.min(1000,Math.max(320,area.clientWidth-8));const vp=page.getViewport({scale:target/base.width});
-  const c=document.createElement("canvas"),d=Math.min(2,devicePixelRatio||1);
-  c.width=Math.ceil(vp.width*d);c.height=Math.ceil(vp.height*d);c.style.width=vp.width+"px";c.style.height=vp.height+"px";c.className="mx-auto rounded-sm";
-  const ctx=c.getContext("2d");ctx.setTransform(d,0,0,d,0,0);await page.render({canvasContext:ctx,viewport:vp}).promise;area.appendChild(c);
+  const cssScale=target/base.width;const vp=page.getViewport({scale:cssScale});
+  const c=document.createElement("canvas"),d=Math.min(3,Math.max(2,window.devicePixelRatio||1));
+  c.width=Math.ceil(vp.width*d);c.height=Math.ceil(vp.height*d);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px";c.className="mx-auto rounded-sm";
+  const ctx=c.getContext("2d",{alpha:false});ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:ctx,viewport:vp,transform:[d,0,0,d,0,0],intent:"display"}).promise;
+  if(token!==state.previewRenderToken)return;
+  area.appendChild(c);
   if(n>=6){const note=document.createElement("p");note.className="py-4 text-center text-xs text-slate-500";note.textContent=`Preview limited to first 6 pages. Download contains all ${pdf.numPages} pages.`;area.appendChild(note);break}
  }
 }
@@ -443,7 +470,58 @@ async function brandSingleFile(file,index){
 
 function outputName(i){
  const raw=(state.displayNames[i]||state.files[i].name.replace(/\.[^.]+$/,"" )).trim()||`WB-Students-Group-${i+1}`;
- return raw.replace(/[\\/:*?"<>|]+/g,"-").replace(/\.pdf$/i,"").slice(0,120)+".pdf";
+ const ext=state.outputTypes[i]==="image/jpeg"?".jpg":".pdf";
+ return raw.replace(/[\\/:*?"<>|]+/g,"-").replace(/\.(pdf|jpe?g|png)$/i,"").slice(0,120)+ext;
+}
+function isImageFile(f){return f && (f.type.startsWith("image/") || /\.(jpe?g|png)$/i.test(f.name));}
+async function loadCanvasImage(src){
+ return await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(new Error("Could not load branding image."));im.src=src;});
+}
+async function brandImageAtOriginalSize(file){
+ const source=await loadCanvasImage(URL.createObjectURL(file));
+ const ow=source.naturalWidth||source.width, oh=source.naturalHeight||source.height;
+ if(!ow||!oh)throw new Error("The selected image has invalid dimensions.");
+ const scale=ow/1000;
+ const headerH=Math.max(64,Math.round(ow*0.12));
+ const footerH=$("footerToggle").checked?Math.max(34,Math.round(ow*(232/1680))):0;
+ const out=document.createElement("canvas");out.width=ow;out.height=oh+headerH+footerH;
+ const ctx=out.getContext("2d",{alpha:false});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";ctx.fillStyle="#fff";ctx.fillRect(0,0,out.width,out.height);
+ const navy="#0b1f3a",blue="#1769aa",green="#159447";
+ // Header is added above the image; original image pixels retain their native dimensions.
+ if($("headerToggle").checked){
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,ow,headerH);ctx.fillStyle=blue;ctx.fillRect(0,headerH-2,ow,2);
+  const logo=await loadCanvasImage(LOGO_DATA);const pad=Math.max(8,Math.round(ow*.018));const logoH=headerH*.68;const logoW=logoH*(logo.naturalWidth/logo.naturalHeight);
+  ctx.drawImage(logo,pad,(headerH-logoH)/2,logoW,logoH);
+  const textX=pad+logoW+pad*.65;const qrSize=Math.min(headerH*.62,ow*.105);const qrX=ow-pad-qrSize;const maxTextW=Math.max(40,qrX-textX-pad);
+  ctx.fillStyle=navy;ctx.font=`800 ${Math.max(10,headerH*.19)}px Arial`;ctx.textBaseline="alphabetic";
+  let title=BRAND.title;while(ctx.measureText(title).width>maxTextW&&title.length>8)title=title.slice(0,-1);
+  ctx.fillText(title,textX,headerH*.43);
+  ctx.fillStyle="#596273";ctx.font=`${Math.max(8,headerH*.105)}px Arial`;ctx.fillText(BRAND.tagline,textX,headerH*.63,maxTextW);
+  try{
+   const cls=BRAND.classes[state.selectedClass], qr=qrcode(0,"L");qr.addData(`https://wa.me/${BRAND.waPhone}?text=${encodeURIComponent(cls.message)}`);qr.make();
+   const count=qr.getModuleCount(), quiet=4, px=Math.max(3,Math.floor(qrSize/(count+quiet*2))), actual=(count+quiet*2)*px;
+   const qCanvas=document.createElement("canvas");qCanvas.width=actual*3;qCanvas.height=actual*3;const qctx=qCanvas.getContext("2d");qctx.scale(3,3);qctx.fillStyle="#ffffff";qctx.fillRect(0,0,actual,actual);qctx.fillStyle="#073B35";
+   for(let r=0;r<count;r++)for(let c=0;c<count;c++)if(qr.isDark(r,c))qctx.fillRect((c+quiet)*px,(r+quiet)*px,px,px);
+   const labelFont=Math.max(9,headerH*.082);const qy=Math.max(3,(headerH-actual-labelFont-12)/2);ctx.fillStyle="#ffffff";ctx.fillRect(qrX-3,qy-3,actual+6,actual+6);ctx.drawImage(qCanvas,0,0,qCanvas.width,qCanvas.height,qrX,qy,actual,actual);ctx.fillStyle=green;ctx.font=`700 ${labelFont}px Arial`;ctx.textAlign="center";ctx.textBaseline="alphabetic";ctx.fillText("SCAN TO JOIN GROUP",qrX+actual/2,qy+actual+labelFont+2);ctx.textAlign="start";
+  }catch(e){console.warn("QR render failed",e)}
+ }
+ // Keep the source image exactly its original pixel width/height.
+ const imageY=$("headerToggle").checked?headerH:0;ctx.drawImage(source,0,imageY,ow,oh);
+ if($("watermarkToggle").checked){const logo=await loadCanvasImage(LOGO_DATA);const maxW=ow*.60,maxH=oh*.42,ratio=logo.naturalWidth/logo.naturalHeight;let ww=maxW,hh=ww/ratio;if(hh>maxH){hh=maxH;ww=hh*ratio;}ctx.save();ctx.globalAlpha=.055;ctx.drawImage(logo,(ow-ww)/2,imageY+(oh-hh)/2,ww,hh);ctx.restore();}
+ if(footerH){const foot=await loadCanvasImage(FOOTER_HD_DATA);ctx.drawImage(foot,0,imageY+oh,ow,footerH);}
+ const blob=await new Promise((resolve,reject)=>out.toBlob(b=>b?resolve(b):reject(new Error("Could not export branded JPG.")),"image/jpeg",.94));
+ URL.revokeObjectURL(source.src);
+ return new Uint8Array(await blob.arrayBuffer());
+}
+
+async function brandedPdfToJpeg(pdfBytes){
+ const pdf=await pdfjsLib.getDocument({data:pdfBytes.slice()}).promise;
+ const page=await pdf.getPage(1),vp=page.getViewport({scale:2});
+ const canvas=document.createElement("canvas");canvas.width=Math.ceil(vp.width);canvas.height=Math.ceil(vp.height);
+ const ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
+ await page.render({canvasContext:ctx,viewport:vp}).promise;
+ const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error("Could not create JPG image.")),"image/jpeg",0.94));
+ return new Uint8Array(await blob.arrayBuffer());
 }
 
 function renderOutputList(){
@@ -456,32 +534,38 @@ function renderOutputList(){
    wrap.classList.remove("hidden");
    picker.innerHTML=state.outputs.map((_,i)=>`<option value="${i}">${i+1}. ${esc(state.displayNames[i]||state.files[i].name)}</option>`).join("");
    picker.value=String(state.previewIndex);
-   picker.onchange=()=>{ state.previewIndex=Number(picker.value); renderPreview(state.outputs[state.previewIndex]).catch(()=>{}); };
+   picker.onchange=()=>{ renderSelectedPreview(Number(picker.value)).catch(e=>{console.error(e);toast("Could not load this preview.",true)}); };
  } else { wrap.classList.add("hidden"); picker.innerHTML=""; }
  lucide.createIcons();
 }
 
 async function process(){
  if(!state.files.length||!state.selectedClass||state.processing)return;
- state.processing=true; state.outputs=[]; state.mergedOutput=null;
+ if(state.jpgOutputMode && state.files.some(f=>!isImageFile(f))){toast("JPG Output Mode works with image files only. Remove PDFs or turn this mode off.",true);return;}
+ state.processing=true; state.outputs=[];state.outputTypes=[]; state.mergedOutput=null;
  $("downloadBtn").disabled=true;$("shareBtn").disabled=true;
  $("downloadBtn").innerHTML=`<span class="spinner"></span><span>Branding ${state.files.length} file${state.files.length===1?"":"s"}…</span>`;
  try{
   for(let i=0;i<state.files.length;i++){
    $("previewMeta").textContent=`Branding ${i+1} of ${state.files.length}: ${state.files[i].name}`;
-   const bytes=await brandSingleFile(state.files[i],i);
-   state.outputs.push(bytes);
+   const out=state.jpgOutputMode
+    ? await brandImageAtOriginalSize(state.files[i])
+    : await brandSingleFile(state.files[i],i);
+   state.outputs.push(out);
+   state.outputTypes.push(state.jpgOutputMode?"image/jpeg":"application/pdf");
    const status=$("fileList").querySelector(`[data-status="${i}"]`); if(status)status.textContent="BRANDED ✓";
   }
-  $("downloadBtn").disabled=false;$("shareBtn").disabled=false;$("downloadAllBtn").disabled=false;$("mergeBtn").disabled=false;
-  $("downloadBtn").innerHTML=`<i data-lucide="download" class="h-5 w-5"></i><span>Download All PDFs</span>`;lucide.createIcons();
-  $("previewMeta").textContent=`${state.outputs.length} separate branded PDF${state.outputs.length===1?"":"s"} ready`;
+  $("downloadBtn").disabled=false;$("shareBtn").disabled=false;$("downloadAllBtn").disabled=false;$("mergeBtn").disabled=state.jpgOutputMode;
+  $("downloadBtn").innerHTML=`<i data-lucide="download" class="h-5 w-5"></i><span>Download All ${state.jpgOutputMode?"JPGs":"PDFs"}</span>`;lucide.createIcons();
+  $("previewMeta").textContent=`${state.outputs.length} separate branded ${state.jpgOutputMode?"JPG image"+(state.outputs.length===1?"":"s"):"PDF"+(state.outputs.length===1?"":"s")} ready`;
   state.previewIndex=0;
   renderOutputList();
-  if(state.outputs[0]) renderPreview(state.outputs[0]).catch(()=>{});
-  toast(`${state.outputs.length} PDF${state.outputs.length===1?"":"s"} branded separately.`);
+  if(state.outputs[0]){
+   renderSelectedPreview(0).catch(()=>{});
+  }
+  toast(`${state.outputs.length} ${state.jpgOutputMode?"JPG image"+(state.outputs.length===1?"":"s"):"PDF"+(state.outputs.length===1?"":"s")} branded separately.`);
  }catch(e){console.error(e);toast("Could not process the files: "+(e?.message||e),true);reset()}
- finally{state.processing=false;}
+ finally{state.processing=false;if(state.reprocessRequested){state.reprocessRequested=false;queueMicrotask(()=>process());}}
 }
 
 function cleanName(raw,fallback){
@@ -490,35 +574,37 @@ function cleanName(raw,fallback){
 }
 function downloadOne(i){
  if(!state.outputs[i])return;
- const blob=new Blob([state.outputs[i]],{type:"application/pdf"}),url=URL.createObjectURL(blob),a=document.createElement("a");
- a.href=url;a.download=cleanName(state.displayNames[i],`WB-Students-Group-${i+1}`)+".pdf";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
+ const type=state.outputTypes[i]||"application/pdf",ext=type==="image/jpeg"?".jpg":".pdf";
+ const blob=new Blob([state.outputs[i]],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download=cleanName(state.displayNames[i],`WB-Students-Group-${i+1}`)+ext;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
 async function shareOne(i){
  if(!state.outputs[i])return;
  const cls=BRAND.classes[state.selectedClass];
  const name=outputName(i);
- const blob=new Blob([state.outputs[i]],{type:"application/pdf"});
- const file=new File([blob],name,{type:"application/pdf",lastModified:1});
+ const type=state.outputTypes[i]||"application/pdf";
+ const blob=new Blob([state.outputs[i]],{type});
+ const file=new File([blob],name,{type,lastModified:1});
  const msg=`WB STUDENTS GROUP\n${cls.message||"Study Material"}\n\n${name}`;
  try{
   if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-   await navigator.share({files:[file],title:name.replace(/\.pdf$/i,""),text:msg});
+   await navigator.share({files:[file],title:name.replace(/\.(pdf|jpe?g|png)$/i,""),text:msg});
    return;
   }
  }catch(e){if(e?.name==="AbortError")return;console.warn("Native share failed",e);}
  // Fallback: download with the exact requested filename before opening WhatsApp.
  downloadOne(i);
- window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nPlease attach the downloaded PDF named "+name+".")}`,"_blank","noopener,noreferrer");
+ window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nPlease attach the downloaded file named "+name+".")}`,"_blank","noopener,noreferrer");
 }
-async function downloadAll(){for(let i=0;i<state.outputs.length;i++){downloadOne(i);await new Promise(r=>setTimeout(r,180));}toast(`${state.outputs.length} separate PDFs downloaded.`)}
+async function downloadAll(){if(!state.outputs.length)return;toast("Downloading files one by one. If prompted, allow multiple downloads in your browser.");for(let i=0;i<state.outputs.length;i++){downloadOne(i);await new Promise(r=>setTimeout(r,900));}toast(`${state.outputs.length} separate ${state.jpgOutputMode?"JPG images":"PDFs"} queued for download.`)}
 async function shareAll(){
  if(!state.outputs.length)return;
  const files=state.outputs.map((b,i)=>{
-  const name=outputName(i);
-  return new File([new Blob([b],{type:"application/pdf"})],name,{type:"application/pdf",lastModified:1});
+  const name=outputName(i),type=state.outputTypes[i]||"application/pdf";
+  return new File([new Blob([b],{type})],name,{type,lastModified:1});
  });
  const cls=BRAND.classes[state.selectedClass];
- const msg=`WB STUDENTS GROUP\n${cls.message||"Study Material"}\n\n${files.length} PDF files`;
+ const msg=`WB STUDENTS GROUP\n${cls.message||"Study Material"}\n\n${files.length} ${state.jpgOutputMode?"JPG images":"PDF files"}`;
  try{
   if(navigator.share && navigator.canShare && navigator.canShare({files})){
    await navigator.share({files,title:"WB STUDENTS GROUP",text:msg});
@@ -526,10 +612,11 @@ async function shareAll(){
   }
  }catch(e){if(e?.name==="AbortError")return;console.warn("Native multi-share failed",e);}
  await downloadAll();
- window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nAll PDFs were downloaded using their exact filenames. Please attach them from Downloads.")}`,"_blank","noopener,noreferrer");
+ window.open(`https://api.whatsapp.com/send?phone=${BRAND.waPhone}&text=${encodeURIComponent(msg+"\n\nAll files were downloaded using their exact filenames. Please attach them from Downloads.")}`,"_blank","noopener,noreferrer");
 }
 async function mergeAll(){
  if(!state.outputs.length||state.processing)return;
+ if(state.jpgOutputMode){toast("Merge is available for PDF output only. Turn JPG Output Mode off first.",true);return;}
  try{
   const merged=await PDFLib.PDFDocument.create();
   for(const bytes of state.outputs){const src=await PDFLib.PDFDocument.load(bytes);const pages=await merged.copyPages(src,src.getPageIndices());pages.forEach(p=>merged.addPage(p));}
@@ -540,15 +627,26 @@ async function mergeAll(){
  }catch(e){console.error(e);toast("Could not merge these PDFs: "+(e?.message||e),true)}
 }
 
-$("browseBtn").addEventListener("click", (e)=>{e.preventDefault();e.stopPropagation();$("fileInput").click();});
+$("browseBtn").addEventListener("click", (e)=>{e.preventDefault();e.stopPropagation();(state.jpgOutputMode?$("jpgInput"):$("fileInput")).click();});
 $("dropZone").addEventListener("click", (e)=>{
   if(e.target.closest("button")) return;
-  $("fileInput").click();
+  (state.jpgOutputMode?$("jpgInput"):$("fileInput")).click();
 });
 $("jpgToPdfBtn").addEventListener("click", (e)=>{e.preventDefault();e.stopPropagation();$("jpgInput").click();});
+$("jpgOutputModeBtn").addEventListener("click",()=>{
+ if(state.files.some(f=>!isImageFile(f))){toast("Remove PDF files first. JPG Output Mode only accepts JPG/PNG images.",true);return;}
+ state.jpgOutputMode=!state.jpgOutputMode;
+ $("jpgOutputModeBtn").setAttribute("aria-pressed",String(state.jpgOutputMode));
+ $("jpgOutputModeBtn").classList.toggle("bg-emerald-700",state.jpgOutputMode);
+ $("jpgOutputModeBtn").classList.toggle("text-white",state.jpgOutputMode);
+ $("jpgOutputModeBtn").innerHTML=`<i data-lucide="image" class="h-4 w-4"></i> JPG Output Mode: ${state.jpgOutputMode?"ON":"OFF"}`;
+ $("jpgModeHint").textContent=state.jpgOutputMode?"ON: selected image files will be branded and saved/shared as .jpg images. No PDF output is created.":"OFF: JPG/PNG files are converted to branded PDFs as usual.";
+ lucide.createIcons();
+ if(state.files.length&&state.selectedClass)process();
+});
 $("jpgInput").addEventListener("change", e=>{handleFiles(e.target.files);e.target.value="";});
 $("fileInput").addEventListener("change", e=>{handleFiles(e.target.files);e.target.value="";});
-$("addMoreBtn").addEventListener("click", (e)=>{e.preventDefault();e.stopPropagation();$("fileInput").click();});
+$("addMoreBtn").addEventListener("click", (e)=>{e.preventDefault();e.stopPropagation();(state.jpgOutputMode?$("jpgInput"):$("fileInput")).click();});
 
 async function handleFiles(list){
  const arr=Array.from(list||[]),valid=arr.filter(f=>f.type==="application/pdf"||f.type==="image/jpeg"||f.type==="image/png"||/\.(pdf|jpe?g|png)$/i.test(f.name));
